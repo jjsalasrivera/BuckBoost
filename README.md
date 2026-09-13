@@ -1,6 +1,6 @@
-# FastPulse
+# BuckBoost
 
-FastPulse is a compact Arduino project focused on high-speed digital output control using direct port manipulation on an Arduino Mega 2560.
+BuckBoost is a compact Arduino project focused on high-speed digital output control using direct port manipulation on an Arduino Mega 2560.
 
 The implementation is inspired by and based on the work described in the following reference project:
 
