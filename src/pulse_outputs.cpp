@@ -28,16 +28,18 @@ namespace
 
     inline void runGroup(const PulseOutputGroup& group, const TimingConfiguration& config)
     {
-        const int delayMicrosecondsValue = (config.carrierFrequencyMicroseconds - (2 * config.interPeakDelayMicroseconds)) / 2;
+        const int delayMicrosecondsValue =
+            (config.carrierFrequencyMicroseconds.value -
+             (2 * config.interPeakDelayMicroseconds.value)) / 2;
 
-        for (unsigned int i = 0; i < config.pulsesPerCycle; ++i)
+        for (int i = 0; i < config.pulsesPerCycle.value; ++i)
         {
             deactivatePin(group.negative);
             activatePin(group.positive);
             delayMicroseconds(delayMicrosecondsValue);
 
             deactivatePin(group.positive);
-            delayMicroseconds(config.interPeakDelayMicroseconds);
+            delayMicroseconds(config.interPeakDelayMicroseconds.value);
 
             activatePin(group.negative);
             delayMicroseconds(delayMicrosecondsValue);
@@ -50,10 +52,10 @@ namespace
     inline void runSynchronizedGroups(const TimingConfiguration& config)
     {
         const int delayMicrosecondsValue =
-            (config.carrierFrequencyMicroseconds -
-            (2 * config.interPeakDelayMicroseconds)) / 2;
+            (config.carrierFrequencyMicroseconds.value -
+             (2 * config.interPeakDelayMicroseconds.value)) / 2;
 
-        for (unsigned int i = 0; i < config.pulsesPerCycle; ++i)
+        for (int i = 0; i < config.pulsesPerCycle.value; ++i)
         {
             deactivatePin(group1.negative);
             deactivatePin(group2.negative);
@@ -64,7 +66,7 @@ namespace
 
             deactivatePin(group1.positive);
             deactivatePin(group2.positive);
-            delayMicroseconds(config.interPeakDelayMicroseconds);
+            delayMicroseconds(config.interPeakDelayMicroseconds.value);
 
             activatePin(group1.negative);
             activatePin(group2.negative);
@@ -75,6 +77,21 @@ namespace
         deactivatePin(group1.negative);
         deactivatePin(group2.positive);
         deactivatePin(group2.negative);
+    }
+
+    inline void disablePulseOutputs()
+    {
+        deactivatePin(group1.positive);
+        deactivatePin(group1.negative);
+        deactivatePin(group2.positive);
+        deactivatePin(group2.negative);
+    }
+
+    inline void runAsymmetricGroups(const TimingConfiguration& config)
+    {
+        // El patrón asimétrico se definirá posteriormente.
+        disablePulseOutputs();
+        delay(1000 / config.frequencyHz.value);
     }
 }
 
@@ -88,22 +105,37 @@ void initializePulseOutputs()
 
 void runPulseOutputs(const TimingConfiguration& config)
 {
-    if (config.symmetry == kSymmetryS)
+    if (config.state.value == kStateOff)
     {
-        runSynchronizedGroups(config);
-        delay(1000 / config.frequencyHz);
+        disablePulseOutputs();
         return;
     }
 
+    switch (config.symmetry.value)
+    {
+        case kSymmetryS:
+            runSynchronizedGroups(config);
+            delay(1000 / config.frequencyHz.value);
+            return;
+
+        case kSymmetryA:
+            runAsymmetricGroups(config);
+            return;
+
+        case kSymmetryR:
+        default:
+            break;
+    }
+
     runGroup(group1, config);
-    delayMicroseconds(config.groupDelayMilliseconds * 1000);
+    delayMicroseconds(config.groupDelayMilliseconds.value);
 
     const unsigned long group2StartMicroseconds = micros();
     runGroup(group2, config);
 
-    const unsigned long group2DurationMicroseconds =
-        micros() - group2StartMicroseconds;
-    const unsigned long periodMicroseconds = 1000000UL / config.frequencyHz;
+    const unsigned long group2DurationMicroseconds = micros() - group2StartMicroseconds;
+    const unsigned long periodMicroseconds =
+        1000000UL / config.frequencyHz.value;
 
     if (group2DurationMicroseconds < periodMicroseconds)
         delayMicroseconds(periodMicroseconds - group2DurationMicroseconds);

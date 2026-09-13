@@ -13,12 +13,13 @@ void setup()
     Serial.begin(115200);
     lcd.initialize();
  
-    config.frequencyHz = 30;
-    config.pulsesPerCycle = 10;
-    config.carrierFrequencyMicroseconds = 100;
-    config.interPeakDelayMicroseconds = 1;
-    config.symmetry = kSymmetryR;
-    config.groupDelayMilliseconds = 0.5f;
+    config.state = {"Estado", kStateOff, kStateOff, kStateOn, kStateOff, ""};
+    config.frequencyHz = {"Frequency", 30, 1, 100, 30, "Hz"};
+    config.carrierFrequencyMicroseconds = {"Carrier", 100, 1, 999, 100, "us"};
+    config.pulsesPerCycle = {"Pulses", 10, 1, 999, 10, "Pu"};
+    config.interPeakDelayMicroseconds = {"Delay Pic", 1, 0, 100, 1, "us"};
+    config.symmetry = {"Symmetry", kSymmetryR, 0, 0, kSymmetryR, ""};
+    config.groupDelayMilliseconds = {"Retraso personalizado", 500, 0, 10000, 500, "us"};
     
     lcd.print(config);
 

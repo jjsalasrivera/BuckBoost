@@ -2,14 +2,27 @@
 
 constexpr char kSymmetryR = 'R';
 constexpr char kSymmetryS = 'S';
+constexpr char kSymmetryA = 'A';
+constexpr int kStateOff = 0;
+constexpr int kStateOn = 1;
+
+struct ConfigurationField {
+	const char* name;
+	int value;
+	int minValue;
+	int maxValue;
+	int previousValue;
+	const char* unit;
+};
 
 struct TimingConfiguration {
-	unsigned short frequencyHz;
-	unsigned short carrierFrequencyMicroseconds;
-	unsigned short pulsesPerCycle;
-	unsigned short interPeakDelayMicroseconds;
-	char symmetry;
-	float groupDelayMilliseconds;
+	ConfigurationField state;
+	ConfigurationField frequencyHz;
+	ConfigurationField carrierFrequencyMicroseconds;
+	ConfigurationField pulsesPerCycle;
+	ConfigurationField interPeakDelayMicroseconds;
+	ConfigurationField symmetry;
+	ConfigurationField groupDelayMilliseconds;
 };
 
 struct PulseOutputPin {

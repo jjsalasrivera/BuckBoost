@@ -30,29 +30,37 @@ void LcdDisplay::print(const TimingConfiguration& config)
 {
     lcd.clear();
     lcd.setCursor(0, 0);
-    
-    lcd.print(config.frequencyHz);
-    lcd.print("Hz  ");
 
-    lcd.print(config.carrierFrequencyMicroseconds);
-    lcd.print("% ");
+    lcd.print(config.state.value == kStateOn ? "On " : "Off");
+    lcd.print(" ");
+    
+    lcd.print(config.frequencyHz.value);
+    lcd.print(config.frequencyHz.unit);
+    lcd.print("  ");
+
+    lcd.print(config.carrierFrequencyMicroseconds.value);
+    lcd.print(config.carrierFrequencyMicroseconds.unit);
+    lcd.print(" ");
 
     char buffer[4];
-    snprintf(buffer, sizeof(buffer), "%03d", config.pulsesPerCycle);
+    snprintf(buffer, sizeof(buffer), "%03d", config.pulsesPerCycle.value);
     lcd.print(buffer);
-    lcd.print("P");
+    lcd.print(config.pulsesPerCycle.unit);
     
     lcd.setCursor(0, 1);
 
-    snprintf(buffer, sizeof(buffer), "%03d", config.interPeakDelayMicroseconds);
+    snprintf(buffer, sizeof(buffer), "%03d",
+             config.interPeakDelayMicroseconds.value);
     lcd.print(buffer);
-    lcd.print("% ");
+    lcd.print(config.interPeakDelayMicroseconds.unit);
+    lcd.print(" ");
     
-    lcd.print(config.symmetry);
+    lcd.print(static_cast<char>(config.symmetry.value));
     lcd.print(" ");
 
-    snprintf(buffer, sizeof(buffer), "%02.1f", static_cast<double>(config.groupDelayMilliseconds));
-    lcd.print("ms ");
+    snprintf(buffer, sizeof(buffer), "%03d", config.groupDelayMilliseconds.value);
+    lcd.print(buffer);
+    lcd.print(config.groupDelayMilliseconds.unit);
 
     lcd.print("MD");
 }
