@@ -31,36 +31,60 @@ void LcdDisplay::print(const TimingConfiguration& config)
     lcd.clear();
     lcd.setCursor(0, 0);
 
-    lcd.print(config.state.value == kStateOn ? "On " : "Off");
-    lcd.print(" ");
-    
+    lcd.print(config.state.value == kStateOn ? "ON-" : "OFF");
     lcd.print(config.frequencyHz.value);
     lcd.print(config.frequencyHz.unit);
-    lcd.print("  ");
-
-    lcd.print(config.carrierFrequencyMicroseconds.value);
-    lcd.print(config.carrierFrequencyMicroseconds.unit);
-    lcd.print(" ");
 
     char buffer[4];
+    snprintf(buffer, sizeof(buffer), "%03d",
+             config.carrierFrequencyMicroseconds.value);
+    lcd.print(buffer);
+    lcd.print("us");
+
     snprintf(buffer, sizeof(buffer), "%03d", config.pulsesPerCycle.value);
     lcd.print(buffer);
-    lcd.print(config.pulsesPerCycle.unit);
+    lcd.print("P");
     
     lcd.setCursor(0, 1);
 
     snprintf(buffer, sizeof(buffer), "%03d",
              config.interPeakDelayMicroseconds.value);
     lcd.print(buffer);
-    lcd.print(config.interPeakDelayMicroseconds.unit);
-    lcd.print(" ");
+    lcd.print("us ");
     
-    lcd.print(static_cast<char>(config.symmetry.value));
+    switch (config.symmetry.value)
+    {
+        case kSymmetryS:
+            lcd.print("SIM");
+            break;
+        case kSymmetryA:
+            lcd.print("ASM");
+            break;
+        case kSymmetryR:
+        default:
+            lcd.print("RET");
+            break;
+    }
     lcd.print(" ");
 
     snprintf(buffer, sizeof(buffer), "%03d", config.groupDelayMilliseconds.value);
     lcd.print(buffer);
-    lcd.print(config.groupDelayMilliseconds.unit);
+    lcd.print("ms");
+}
 
-    lcd.print("MD");
+void LcdDisplay::print(const ConfigurationField& field)
+{
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(field.name);
+    lcd.setCursor(0, 1);
+
+    if (field.name[0] == 'S' && field.name[1] == 'y')
+    {
+        lcd.print(static_cast<char>(field.value));
+        return;
+    }
+
+    lcd.print(field.value);
+    lcd.print(field.unit);
 }

@@ -7,6 +7,8 @@
 
 LcdDisplay lcd;
 TimingConfiguration config;
+ConfigurationMenuState menu;
+bool configurationMode = false;
 
 void setup() 
 {
@@ -16,11 +18,13 @@ void setup()
     config.state = {"Estado", kStateOff, kStateOff, kStateOn, kStateOff, ""};
     config.frequencyHz = {"Frequency", 30, 1, 100, 30, "Hz"};
     config.carrierFrequencyMicroseconds = {"Carrier", 100, 1, 999, 100, "us"};
-    config.pulsesPerCycle = {"Pulses", 10, 1, 999, 10, "Pu"};
+    config.pulsesPerCycle = {"Pulses", 10, 1, 999, 10, "P"};
     config.interPeakDelayMicroseconds = {"Delay Pic", 1, 0, 100, 1, "us"};
     config.symmetry = {"Symmetry", kSymmetryR, 0, 0, kSymmetryR, ""};
-    config.groupDelayMilliseconds = {"Retraso personalizado", 500, 0, 10000, 500, "us"};
-    
+    config.groupDelayMilliseconds = {"Retraso personalizado", 500, 0, 10000, 500, "ms"};
+
+    loadConfiguration(config);
+    config.state.value = kStateOff;
     lcd.print(config);
 
     initializePulseOutputs();
@@ -29,8 +33,29 @@ void setup()
 void loop() 
 {
     const char key = readKeypadKey();
-    if (key != kNoKey)
-        handleKey(key, config, lcd);
 
-    runPulseOutputs(config);
+    if (!configurationMode)
+    {
+        if (key != kNoKey)
+        {
+            config.state.value = kStateOff;
+            configurationMode = true;
+            runPulseOutputs(config);
+            beginConfiguration(config, menu, lcd, millis());
+        }
+        else
+        {
+            runPulseOutputs(config);
+        }
+        return;
+    }
+
+    if (key != kNoKey)
+        handleKey(key, config, menu, lcd, millis());
+
+    if (configurationTimedOut(menu, millis()))
+    {
+        confirmConfiguration(config, menu, lcd);
+        configurationMode = false;
+    }
 }
