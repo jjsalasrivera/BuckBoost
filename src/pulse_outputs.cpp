@@ -89,9 +89,28 @@ namespace
 
     inline void runAsymmetricGroups(const TimingConfiguration& config)
     {
-        // El patrón asimétrico se definirá posteriormente.
-        disablePulseOutputs();
-        delay(1000 / config.frequencyHz.value);
+        const unsigned long cycleStartMicroseconds = micros();
+        runGroup(group1, config);
+
+        const unsigned long group1DurationMicroseconds = micros() - cycleStartMicroseconds;
+        const unsigned long periodMicroseconds = 1000000UL / config.frequencyHz.value;
+
+        if (group1DurationMicroseconds < periodMicroseconds)
+        {
+            const unsigned long group1RestMicroseconds = periodMicroseconds - group1DurationMicroseconds;
+
+            if (group1DurationMicroseconds <= group1RestMicroseconds)
+            {
+                const unsigned long group2StartDelayMicroseconds = (group1RestMicroseconds - group1DurationMicroseconds) / 2;
+                delayMicroseconds(group2StartDelayMicroseconds);
+            }
+        }
+
+        runGroup(group2, config);
+
+        const unsigned long elapsedMicroseconds = micros() - cycleStartMicroseconds;
+        if (elapsedMicroseconds < periodMicroseconds)
+            delayMicroseconds(periodMicroseconds - elapsedMicroseconds);
     }
 }
 
@@ -123,12 +142,14 @@ void runPulseOutputs(const TimingConfiguration& config)
             return;
 
         case kSymmetryR:
+            break;
         default:
             break;
     }
 
+    // Ejecucion con retardo entre grupos
     runGroup(group1, config);
-    delayMicroseconds(config.groupDelayMilliseconds.value);
+    delay(config.groupDelayMilliseconds.value);
 
     const unsigned long group2StartMicroseconds = micros();
     runGroup(group2, config);
