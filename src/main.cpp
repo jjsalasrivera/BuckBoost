@@ -1,42 +1,61 @@
 #include <Arduino.h>
+#include "configuration_menu.h"
+#include "lcd_display.h"
+#include "keypad_config.h"
+#include "pulse_outputs.h"
+#include "types.h"
 
-// Basic sketch for setting up stimulation trigger for OpenXstim
-// For any queries please contact: md.malam@connect.polyu.hk
-#define Hz 30 // set your stimulation frequency
-#define burst 10 // set your pulse number in the burst
+LcdDisplay lcd;
+TimingConfiguration config;
+ConfigurationMenuState menu;
+bool configurationMode = false;
 
-//#define LOGIC_IN1 9
-//#define LOGIC_IN2 10
-void setup() {
-    pinMode(LED_BUILTIN, OUTPUT);
-    //pinMode(LOGIC_IN1, OUTPUT);
-    //pinMode(LOGIC_IN2, OUTPUT); 
-    DDRB = B00010000; // Pin 10
-    DDRH = B01000000; // Pin 9
+void setup() 
+{
+    Serial.begin(115200);
+    lcd.initialize();
+ 
+    config.state = {"Estado", kStateOff, kStateOff, kStateOn, kStateOff, ""};
+    config.frequencyHz = {"Frequency", 30, 1, 100, 30, "Hz"};
+    config.carrierFrequencyMicroseconds = {"Carrier", 100, 1, 999, 100, "us"};
+    config.pulsesPerCycle = {"Pulses", 10, 1, 999, 10, "P"};
+    config.interPeakDelayMicroseconds = {"Delay Pic", 1, 0, 100, 1, "us"};
+    config.symmetry = {"Symmetry", kSymmetryR, 0, 0, kSymmetryR, ""};
+    config.groupDelayMilliseconds = {"Retraso personalizado", 500, 0, 10000, 500, "ms"};
+
+    loadConfiguration(config);
+    config.state.value = kStateOff;
+    lcd.print(config);
+
+    initializePulseOutputs();
 }
-void loop() {
-    for (int i=0; i<burst; i++) {
-        // positive phase
-        //digitalWrite(LOGIC_IN1, LOW);
-        //digitalWrite(LOGIC_IN2, HIGH);
-        PORTB = B00010000; // faster digitalwrite operation
-        PORTH = B00000000;
-        delayMicroseconds(50);
 
-        // negetive phase
-        //digitalWrite(LOGIC_IN1, HIGH);    
-        //digitalWrite(LOGIC_IN2, LOW);
-        PORTB = B00000000;
-        PORTH = B01000000;
-        delayMicroseconds(50);
+void loop() 
+{
+    const char key = readKeypadKey();
+
+    if (!configurationMode)
+    {
+        if (key != kNoKey)
+        {
+            config.state.value = kStateOff;
+            configurationMode = true;
+            runPulseOutputs(config);
+            beginConfiguration(config, menu, lcd, millis());
+        }
+        else
+        {
+            runPulseOutputs(config);
+        }
+        return;
     }
 
-    // stimulation delay
-    //digitalWrite(LOGIC_IN1, LOW);    
-    //digitalWrite(LOGIC_IN2, LOW);
-    PORTB = B00000000;  // faster digitalwrite operation  
-    PORTH = B00000000;
+    if (key != kNoKey)
+        handleKey(key, config, menu, lcd, millis());
 
-    delay(1000/Hz);
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN)); // toggle LED for visual feedback
+    if (configurationTimedOut(menu, millis()))
+    {
+        confirmConfiguration(config, menu, lcd);
+        configurationMode = false;
+    }
 }
