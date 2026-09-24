@@ -43,29 +43,31 @@ The following table maps each digital pin to its corresponding AVR port and bit:
 
 ## Pulse output groups
 
-The pulse outputs use two pins per phase. Each mask is written directly to the
-corresponding AVR port, so unrelated port bits are preserved by the firmware.
+The firmware is currently configured to use the following digital pins for output generation:
 
 | Group | Phase | Digital pins | AVR bits | Direction register | Output register |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Positive | 0 and 2 | `PE0` and `PE4` | `DDRE` | `PORTE` |
-| 1 | Negative | 1 and 3 | `PE1` and `PE5` | `DDRE` | `PORTE` |
-| 2 | Positive | 6 and 8 | `PH3` and `PH5` | `DDRH` | `PORTH` |
-| 2 | Negative | 7 and 9 | `PH4` and `PH6` | `DDRH` | `PORTH` |
+| 1 | Positive | 6 and 8 | `PH3` and `PH5` | `DDRH` | `PORTH` |
+| 1 | Negative | 7 and 9 | `PH4` and `PH6` | `DDRH` | `PORTH` |
+| 2 | Positive | 10 and 12 | `PB4` and `PB6` | `DDRB` | `PORTB` |
+| 2 | Negative | 11 and 13 | `PB5` and `PB7` | `DDRB` | `PORTB` |
 
-The masks for the active groups are:
+These are the active masks currently defined in the firmware:
 
 ```cpp
-// Group 1: pins 0/2 and 1/3
-{B00010001, B00100010}
-
-// Group 2: pins 6/8 and 7/9
+// Group 1: pins 6/8 and 7/9
 {B00101000, B01010000}
+
+// Group 2: pins 10/12 and 11/13
+{B01010000, B10100000}
 ```
 
-Pins 0 and 1 are `Serial0` RX/TX and are also connected to the Mega USB
-interface. Do not use them for pulse output together with USB serial
-communication or serial debugging.
+This means the output channels in use are:
+
+- `PH3`, `PH4`, `PH5`, `PH6` -> pins 6, 7, 8, 9
+- `PB4`, `PB5`, `PB6`, `PB7` -> pins 10, 11, 12, 13
+
+Pins 0 and 1 are `Serial0` RX/TX and are connected to the Mega USB interface, so they are intentionally not used for pulse output in this configuration.
 
 ## Notes
 
