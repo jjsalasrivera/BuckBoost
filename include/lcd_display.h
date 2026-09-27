@@ -12,6 +12,7 @@ public:
     void clear();
     void print(const TimingConfiguration& config);
 	void print(const ConfigurationField& field);
+	void printOutputStatus(bool active);
 
 private:
 	LiquidCrystal_PCF8574 lcd;

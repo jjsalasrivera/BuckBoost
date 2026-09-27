@@ -8,10 +8,10 @@ constexpr int kStateOn = 1;
 
 struct ConfigurationField {
 	const char* name;
-	int value;
-	int minValue;
-	int maxValue;
-	int previousValue;
+	long value;
+	long minValue;
+	long maxValue;
+	long previousValue;
 	const char* unit;
 };
 
@@ -22,7 +22,7 @@ struct TimingConfiguration {
 	ConfigurationField pulsesPerCycle;
 	ConfigurationField interPeakDelayMicroseconds;
 	ConfigurationField symmetry;
-	ConfigurationField groupDelayMilliseconds;
+	ConfigurationField groupDelay10Microseconds; // Pasar a centesimas de milisegundo para que sea más fácil de manejar en el código y en la pantalla del LCD
 };
 
 struct PulseOutputPin {

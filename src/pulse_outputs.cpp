@@ -26,11 +26,10 @@ namespace
         *pin.outputRegister &= static_cast<unsigned char>(~pin.bitMask);
     }
 
-    inline void runGroup(const PulseOutputGroup& group, const TimingConfiguration& config)
+    inline void runGroup(const PulseOutputGroup& group, const TimingConfiguration& config, LcdDisplay& lcd )
     {
-        const int delayMicrosecondsValue =
-            (config.carrierFrequencyMicroseconds.value -
-             (2 * config.interPeakDelayMicroseconds.value)) / 2;
+        lcd.printOutputStatus(true);
+        const int delayMicrosecondsValue = (config.carrierFrequencyMicroseconds.value - (2 * config.interPeakDelayMicroseconds.value)) / 2;
 
         for (int i = 0; i < config.pulsesPerCycle.value; ++i)
         {
@@ -47,14 +46,14 @@ namespace
 
         deactivatePin(group.positive);
         deactivatePin(group.negative);
+        lcd.printOutputStatus(false);
     }
 
-    inline void runSynchronizedGroups(const TimingConfiguration& config)
+    inline void runSynchronizedGroups(const TimingConfiguration& config, LcdDisplay& lcd)
     {
-        const int delayMicrosecondsValue =
-            (config.carrierFrequencyMicroseconds.value -
-             (2 * config.interPeakDelayMicroseconds.value)) / 2;
+        const int delayMicrosecondsValue = (config.carrierFrequencyMicroseconds.value - (2 * config.interPeakDelayMicroseconds.value)) / 2;
 
+        lcd.printOutputStatus(true);
         for (int i = 0; i < config.pulsesPerCycle.value; ++i)
         {
             deactivatePin(group1.negative);
@@ -77,6 +76,7 @@ namespace
         deactivatePin(group1.negative);
         deactivatePin(group2.positive);
         deactivatePin(group2.negative);
+        lcd.printOutputStatus(false);
     }
 
     inline void disablePulseOutputs()
@@ -87,10 +87,10 @@ namespace
         deactivatePin(group2.negative);
     }
 
-    inline void runAsymmetricGroups(const TimingConfiguration& config)
+    inline void runAsymmetricGroups(const TimingConfiguration& config, LcdDisplay& lcd)
     {
         const unsigned long cycleStartMicroseconds = micros();
-        runGroup(group1, config);
+        runGroup(group1, config, lcd);
 
         const unsigned long group1DurationMicroseconds = micros() - cycleStartMicroseconds;
         const unsigned long periodMicroseconds = 1000000UL / config.frequencyHz.value;
@@ -106,7 +106,7 @@ namespace
             }
         }
 
-        runGroup(group2, config);
+        runGroup(group2, config, lcd);
 
         const unsigned long elapsedMicroseconds = micros() - cycleStartMicroseconds;
         if (elapsedMicroseconds < periodMicroseconds)
@@ -122,7 +122,7 @@ void initializePulseOutputs()
     *group2.negative.directionRegister |= group2.negative.bitMask;
 }
 
-void runPulseOutputs(const TimingConfiguration& config)
+void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
 {
     if (config.state.value == kStateOff)
     {
@@ -133,12 +133,12 @@ void runPulseOutputs(const TimingConfiguration& config)
     switch (config.symmetry.value)
     {
         case kSymmetryS:
-            runSynchronizedGroups(config);
+            runSynchronizedGroups(config, lcd);
             delay(1000 / config.frequencyHz.value);
             return;
 
         case kSymmetryA:
-            runAsymmetricGroups(config);
+            runAsymmetricGroups(config, lcd);
             return;
 
         case kSymmetryR:
@@ -146,17 +146,15 @@ void runPulseOutputs(const TimingConfiguration& config)
         default:
             break;
     }
-
     // Ejecucion con retardo entre grupos
-    runGroup(group1, config);
-    delay(config.groupDelayMilliseconds.value);
-
+    runGroup(group1, config, lcd);
     const unsigned long group2StartMicroseconds = micros();
-    runGroup(group2, config);
+    delayMicroseconds(config.groupDelay10Microseconds.value * 10L);
+
+    runGroup(group2, config, lcd);
 
     const unsigned long group2DurationMicroseconds = micros() - group2StartMicroseconds;
-    const unsigned long periodMicroseconds =
-        1000000UL / config.frequencyHz.value;
+    const unsigned long periodMicroseconds = 1000000UL / config.frequencyHz.value;
 
     if (group2DurationMicroseconds < periodMicroseconds)
         delayMicroseconds(periodMicroseconds - group2DurationMicroseconds);

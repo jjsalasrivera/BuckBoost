@@ -3,7 +3,7 @@
 #include "lcd_display.h"
 #include "types.h"
 
-constexpr unsigned long kConfigurationTimeoutMilliseconds = 2000;
+constexpr unsigned long kConfigurationTimeoutMilliseconds = 6000;
 
 struct ConfigurationMenuState
 {
@@ -11,19 +11,12 @@ struct ConfigurationMenuState
 	unsigned long lastInteractionMilliseconds;
 };
 
-void beginConfiguration(TimingConfiguration& config,
-	ConfigurationMenuState& menu,
-	LcdDisplay& lcd,
-	unsigned long nowMilliseconds);
-bool handleKey(char key,
-	TimingConfiguration& config,
-	ConfigurationMenuState& menu,
-	LcdDisplay& lcd,
-	unsigned long nowMilliseconds);
-bool configurationTimedOut(const ConfigurationMenuState& menu,
-	unsigned long nowMilliseconds);
-void confirmConfiguration(TimingConfiguration& config,
-	ConfigurationMenuState& menu,
-	LcdDisplay& lcd);
+void beginConfiguration(TimingConfiguration& config, ConfigurationMenuState& menu, LcdDisplay& lcd, unsigned long nowMilliseconds);
+
+bool handleKey(char key, TimingConfiguration& config, ConfigurationMenuState& menu, LcdDisplay& lcd, unsigned long nowMilliseconds);
+
+bool configurationTimedOut(const ConfigurationMenuState& menu, unsigned long nowMilliseconds);
+
 void loadConfiguration(TimingConfiguration& config);
+
 void saveConfiguration(const TimingConfiguration& config);

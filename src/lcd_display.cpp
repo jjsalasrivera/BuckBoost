@@ -36,40 +36,38 @@ void LcdDisplay::print(const TimingConfiguration& config)
     lcd.print(config.frequencyHz.unit);
 
     char buffer[4];
-    snprintf(buffer, sizeof(buffer), "%03d",
-             config.carrierFrequencyMicroseconds.value);
+    snprintf(buffer, sizeof(buffer), "%03ld", config.carrierFrequencyMicroseconds.value);
     lcd.print(buffer);
     lcd.print("us");
 
-    snprintf(buffer, sizeof(buffer), "%03d", config.pulsesPerCycle.value);
+    snprintf(buffer, sizeof(buffer), "%03ld", config.pulsesPerCycle.value);
     lcd.print(buffer);
     lcd.print("P");
     
     lcd.setCursor(0, 1);
 
-    snprintf(buffer, sizeof(buffer), "%03d",
-             config.interPeakDelayMicroseconds.value);
+    snprintf(buffer, sizeof(buffer), "%03ld", config.interPeakDelayMicroseconds.value);
     lcd.print(buffer);
     lcd.print("us ");
     
     switch (config.symmetry.value)
     {
         case kSymmetryS:
-            lcd.print("SIM");
+            lcd.print("S");
             break;
         case kSymmetryA:
-            lcd.print("ASM");
+            lcd.print("A");
             break;
         case kSymmetryR:
         default:
-            lcd.print("RET");
+            lcd.print("R");
             break;
     }
-    lcd.print(" ");
 
-    snprintf(buffer, sizeof(buffer), "%03d", config.groupDelayMilliseconds.value);
-    lcd.print(buffer);
-    lcd.print("ms");
+    const long groupDelay10Microseconds = config.groupDelay10Microseconds.value;
+    char delayBuffer[10];
+    snprintf(delayBuffer, sizeof(delayBuffer), " %ldcms", groupDelay10Microseconds);
+    lcd.print(delayBuffer);
 }
 
 void LcdDisplay::print(const ConfigurationField& field)
@@ -81,10 +79,17 @@ void LcdDisplay::print(const ConfigurationField& field)
 
     if (field.name[0] == 'S' && field.name[1] == 'y')
     {
-        lcd.print(static_cast<char>(field.value));
+        lcd.print(static_cast<char>(field.previousValue));
         return;
     }
 
-    lcd.print(field.value);
+    lcd.print(field.previousValue);
+    lcd.print(" ");
     lcd.print(field.unit);
+}
+
+void LcdDisplay::printOutputStatus(bool active)
+{
+    lcd.setCursor(15, 1);
+    lcd.print(active ? "*" : " ");
 }

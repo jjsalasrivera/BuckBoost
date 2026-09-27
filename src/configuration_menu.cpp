@@ -5,34 +5,35 @@
 
 namespace
 {
-    constexpr unsigned char kEditableFieldCount = 6;
+    constexpr unsigned char kEditableFieldCount = 7;
     constexpr unsigned int kEepromAddress = 0;
     constexpr unsigned int kConfigurationSignature = 0x4255;
-    constexpr unsigned char kConfigurationVersion = 1;
+    constexpr unsigned char kConfigurationVersion = 2;
 
     struct StoredConfiguration
     {
         unsigned int signature;
         unsigned char version;
-        int frequencyHz;
-        int carrierFrequencyMicroseconds;
-        int pulsesPerCycle;
-        int interPeakDelayMicroseconds;
-        int symmetry;
-        int groupDelayMilliseconds;
+        long state;
+        long frequencyHz;
+        long carrierFrequencyMicroseconds;
+        long pulsesPerCycle;
+        long interPeakDelayMicroseconds;
+        long symmetry;
+        long groupDelay10Microseconds;
     };
 
-    ConfigurationField* getField(TimingConfiguration& config,
-                                 unsigned char fieldIndex)
+    ConfigurationField* getField(TimingConfiguration& config, unsigned char fieldIndex)
     {
         switch (fieldIndex)
         {
-            case 0: return &config.frequencyHz;
-            case 1: return &config.carrierFrequencyMicroseconds;
-            case 2: return &config.pulsesPerCycle;
-            case 3: return &config.interPeakDelayMicroseconds;
-            case 4: return &config.symmetry;
-            default: return &config.groupDelayMilliseconds;
+            case 0: return &config.state;
+            case 1: return &config.frequencyHz;
+            case 2: return &config.carrierFrequencyMicroseconds;
+            case 3: return &config.pulsesPerCycle;
+            case 4: return &config.interPeakDelayMicroseconds;
+            case 5: return &config.symmetry;
+            default: return &config.groupDelay10Microseconds;
         }
     }
 
@@ -46,6 +47,9 @@ namespace
         if (field.name[0] == 'S' && field.name[1] == 'y')
             return isValidSymmetry(field.value);
 
+        if (field.name[0] == 'E' && field.name[1] == 's')
+            return field.value == kStateOff || field.value == kStateOn;
+
         return field.value >= field.minValue && field.value <= field.maxValue;
     }
 
@@ -53,13 +57,13 @@ namespace
     {
         if (direction > 0)
         {
-            field.value = field.value == kSymmetryR ? kSymmetryS :
-                          field.value == kSymmetryS ? kSymmetryA : kSymmetryR;
+            field.previousValue = field.previousValue == kSymmetryR ? kSymmetryS :
+                          field.previousValue == kSymmetryS ? kSymmetryA : kSymmetryR;
         }
         else
         {
-            field.value = field.value == kSymmetryR ? kSymmetryA :
-                          field.value == kSymmetryS ? kSymmetryR : kSymmetryS;
+            field.previousValue = field.previousValue == kSymmetryR ? kSymmetryA :
+                          field.previousValue == kSymmetryS ? kSymmetryR : kSymmetryS;
         }
     }
 
@@ -71,32 +75,20 @@ namespace
             return;
         }
 
-        field.value += direction;
-        if (field.value > field.maxValue)
-            field.value = field.minValue;
-        else if (field.value < field.minValue)
-            field.value = field.maxValue;
+        field.previousValue += direction;
+        if (field.previousValue > field.maxValue)
+            field.previousValue = field.minValue;
+        else if (field.previousValue < field.minValue)
+            field.previousValue = field.maxValue;
     }
 
-    void restoreCurrentField(TimingConfiguration& config,
-                             const ConfigurationMenuState& menu)
-    {
-        getField(config, menu.fieldIndex)->value =
-            getField(config, menu.fieldIndex)->previousValue;
-    }
-
-    void renderCurrentField(TimingConfiguration& config,
-                            const ConfigurationMenuState& menu,
-                            LcdDisplay& lcd)
+    void renderCurrentField(TimingConfiguration& config, const ConfigurationMenuState& menu, LcdDisplay& lcd)
     {
         lcd.print(*getField(config, menu.fieldIndex));
     }
 }
 
-void beginConfiguration(TimingConfiguration& config,
-                        ConfigurationMenuState& menu,
-                        LcdDisplay& lcd,
-                        unsigned long nowMilliseconds)
+void beginConfiguration(TimingConfiguration& config, ConfigurationMenuState& menu, LcdDisplay& lcd, unsigned long nowMilliseconds)
 {
     menu.fieldIndex = 0;
     menu.lastInteractionMilliseconds = nowMilliseconds;
@@ -105,12 +97,8 @@ void beginConfiguration(TimingConfiguration& config,
     renderCurrentField(config, menu, lcd);
 }
 
-bool handleKey(char key,
-               TimingConfiguration& config,
-               ConfigurationMenuState& menu,
-               LcdDisplay& lcd,
-               unsigned long nowMilliseconds)
-{
+bool handleKey(char key, TimingConfiguration& config, ConfigurationMenuState& menu, LcdDisplay& lcd, unsigned long nowMilliseconds)
+{    
     if (key != 'N' && key != 'B' && key != 'I' && key != 'D' && key != 'S')
         return false;
 
@@ -121,28 +109,35 @@ bool handleKey(char key,
     {
         case 'I':
             changeField(*field, 1);
+            
             break;
         case 'D':
             changeField(*field, -1);
+            
             break;
         case 'S':
-            field->previousValue = field->value;
-            menu.fieldIndex = (menu.fieldIndex + 1) % kEditableFieldCount;
-            getField(config, menu.fieldIndex)->previousValue =
-                getField(config, menu.fieldIndex)->value;
+            //field->previousValue = field->value;
+            field->value = field->previousValue;
+            //menu.fieldIndex = (menu.fieldIndex + 1) % kEditableFieldCount;
+            //getField(config, menu.fieldIndex)->previousValue = getField(config, menu.fieldIndex)->value;
+            saveConfiguration(config);
+
             break;
         case 'N':
-            restoreCurrentField(config, menu);
+            //restoreCurrentField(config, menu);
+            field->previousValue = field->value;
+
             menu.fieldIndex = (menu.fieldIndex + 1) % kEditableFieldCount;
-            getField(config, menu.fieldIndex)->previousValue =
-                getField(config, menu.fieldIndex)->value;
+            getField(config, menu.fieldIndex)->previousValue = getField(config, menu.fieldIndex)->value;
+            
             break;
         case 'B':
-            restoreCurrentField(config, menu);
-            menu.fieldIndex = (menu.fieldIndex + kEditableFieldCount - 1) %
-                              kEditableFieldCount;
-            getField(config, menu.fieldIndex)->previousValue =
-                getField(config, menu.fieldIndex)->value;
+            //restoreCurrentField(config, menu);
+            field->previousValue = field->value;
+
+            menu.fieldIndex = (menu.fieldIndex + kEditableFieldCount - 1) % kEditableFieldCount;
+            getField(config, menu.fieldIndex)->previousValue = getField(config, menu.fieldIndex)->value;
+            
             break;
     }
 
@@ -150,22 +145,9 @@ bool handleKey(char key,
     return true;
 }
 
-bool configurationTimedOut(const ConfigurationMenuState& menu,
-                           unsigned long nowMilliseconds)
+bool configurationTimedOut(const ConfigurationMenuState& menu, unsigned long nowMilliseconds)
 {
-    return nowMilliseconds - menu.lastInteractionMilliseconds >=
-           kConfigurationTimeoutMilliseconds;
-}
-
-void confirmConfiguration(TimingConfiguration& config,
-                          ConfigurationMenuState& menu,
-                          LcdDisplay& lcd)
-{
-    ConfigurationField* field = getField(config, menu.fieldIndex);
-    field->previousValue = field->value;
-    saveConfiguration(config);
-    config.state.value = kStateOn;
-    lcd.print(config);
+    return nowMilliseconds - menu.lastInteractionMilliseconds >= kConfigurationTimeoutMilliseconds;
 }
 
 void loadConfiguration(TimingConfiguration& config)
@@ -177,21 +159,23 @@ void loadConfiguration(TimingConfiguration& config)
         stored.version != kConfigurationVersion)
         return;
 
-    const int values[] = {
+    const long values[] = {
+        stored.state,
         stored.frequencyHz,
         stored.carrierFrequencyMicroseconds,
         stored.pulsesPerCycle,
         stored.interPeakDelayMicroseconds,
         stored.symmetry,
-        stored.groupDelayMilliseconds
+        stored.groupDelay10Microseconds
     };
     ConfigurationField* fields[] = {
+        &config.state,
         &config.frequencyHz,
         &config.carrierFrequencyMicroseconds,
         &config.pulsesPerCycle,
         &config.interPeakDelayMicroseconds,
         &config.symmetry,
-        &config.groupDelayMilliseconds
+        &config.groupDelay10Microseconds
     };
 
     for (unsigned char i = 0; i < kEditableFieldCount; ++i)
@@ -214,12 +198,13 @@ void saveConfiguration(const TimingConfiguration& config)
     const StoredConfiguration stored = {
         kConfigurationSignature,
         kConfigurationVersion,
+        config.state.value,
         config.frequencyHz.value,
         config.carrierFrequencyMicroseconds.value,
         config.pulsesPerCycle.value,
         config.interPeakDelayMicroseconds.value,
         config.symmetry.value,
-        config.groupDelayMilliseconds.value
+        config.groupDelay10Microseconds.value
     };
 
     EEPROM.put(kEepromAddress, stored);
