@@ -12,7 +12,7 @@ bool configurationMode = false;
 
 void setup() 
 {
-    Serial.begin(115200);
+    //Serial.begin(115200);
     lcd.initialize();
  
     config.state = {"Estado", kStateOff, kStateOff, kStateOn, kStateOff, ""};
@@ -24,7 +24,6 @@ void setup()
     config.groupDelay10Microseconds = {"Retardo grupo", 5000, 0, 9999, 5000, "*10us"};
 
     loadConfiguration(config);
-    config.state.value = kStateOff;
     lcd.print(config);
     lcd.printOutputStatus(config.state.value != kStateOff);
 
@@ -50,6 +49,8 @@ void loop()
         
         return;
     }
+
+    runPulseOutputs(config, lcd);
 
     if (key != kNoKey)
         handleKey(key, config, menu, lcd, millis());

@@ -148,9 +148,9 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
     }
     // Ejecucion con retardo entre grupos
     runGroup(group1, config, lcd);
-    const unsigned long group2StartMicroseconds = micros();
     delayMicroseconds(config.groupDelay10Microseconds.value * 10L);
 
+    const unsigned long group2StartMicroseconds = micros();
     runGroup(group2, config, lcd);
 
     const unsigned long group2DurationMicroseconds = micros() - group2StartMicroseconds;

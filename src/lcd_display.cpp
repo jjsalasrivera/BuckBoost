@@ -83,6 +83,12 @@ void LcdDisplay::print(const ConfigurationField& field)
         return;
     }
 
+    if (field.name[0] == 'E' && field.name[1] == 's')
+    {
+        lcd.print(field.previousValue == kStateOn ? "ON" : "OFF");
+        return;
+    }
+
     lcd.print(field.previousValue);
     lcd.print(" ");
     lcd.print(field.unit);

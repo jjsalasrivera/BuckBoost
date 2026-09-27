@@ -3,8 +3,8 @@
 constexpr char kSymmetryR = 'R';
 constexpr char kSymmetryS = 'S';
 constexpr char kSymmetryA = 'A';
-constexpr int kStateOff = 0;
-constexpr int kStateOn = 1;
+constexpr long kStateOff = 0;
+constexpr long kStateOn = 1;
 
 struct ConfigurationField {
 	const char* name;
