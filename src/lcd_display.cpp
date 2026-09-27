@@ -66,7 +66,7 @@ void LcdDisplay::print(const TimingConfiguration& config)
 
     const long groupDelay10Microseconds = config.groupDelay10Microseconds.value;
     char delayBuffer[10];
-    snprintf(delayBuffer, sizeof(delayBuffer), " %ldcms", groupDelay10Microseconds);
+    snprintf(delayBuffer, sizeof(delayBuffer), " %lddus", groupDelay10Microseconds);
     lcd.print(delayBuffer);
 }
 

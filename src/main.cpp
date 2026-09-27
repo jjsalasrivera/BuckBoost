@@ -21,7 +21,7 @@ void setup()
     config.pulsesPerCycle = {"Pulses", 10, 1, 999, 10, "P"};
     config.interPeakDelayMicroseconds = {"Delay Pic", 1, 0, 100, 1, "us"};
     config.symmetry = {"Symmetry", kSymmetryR, 0, 0, kSymmetryR, ""};
-    config.groupDelay10Microseconds = {"Retardo grupo", 5000, 0, 9999, 5000, "*10us"};
+    config.groupDelay10Microseconds = {"Retardo grupo", 500, 0, 9999, 500, "*10us"};
 
     loadConfiguration(config);
     lcd.print(config);

@@ -7,8 +7,8 @@ namespace
 {
     constexpr unsigned char kEditableFieldCount = 7;
     constexpr unsigned int kEepromAddress = 0;
-    constexpr unsigned int kConfigurationSignature = 0x4255;
-    constexpr unsigned char kConfigurationVersion = 2;
+    constexpr unsigned int kConfigurationSignature = 0x4254;
+    constexpr unsigned char kConfigurationVersion = 3;
 
     struct StoredConfiguration
     {

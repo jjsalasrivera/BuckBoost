@@ -89,28 +89,16 @@ namespace
 
     inline void runAsymmetricGroups(const TimingConfiguration& config, LcdDisplay& lcd)
     {
-        const unsigned long cycleStartMicroseconds = micros();
+        const unsigned long periodMicroseconds = 1000000UL / (config.frequencyHz.value - (config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value));
+        const unsigned long halfPeriodMicroseconds = periodMicroseconds / 2;
+
         runGroup(group1, config, lcd);
 
-        const unsigned long group1DurationMicroseconds = micros() - cycleStartMicroseconds;
-        const unsigned long periodMicroseconds = 1000000UL / config.frequencyHz.value;
-
-        if (group1DurationMicroseconds < periodMicroseconds)
-        {
-            const unsigned long group1RestMicroseconds = periodMicroseconds - group1DurationMicroseconds;
-
-            if (group1DurationMicroseconds <= group1RestMicroseconds)
-            {
-                const unsigned long group2StartDelayMicroseconds = (group1RestMicroseconds - group1DurationMicroseconds) / 2;
-                delayMicroseconds(group2StartDelayMicroseconds);
-            }
-        }
+        delayMicroseconds(halfPeriodMicroseconds);
 
         runGroup(group2, config, lcd);
 
-        const unsigned long elapsedMicroseconds = micros() - cycleStartMicroseconds;
-        if (elapsedMicroseconds < periodMicroseconds)
-            delayMicroseconds(periodMicroseconds - elapsedMicroseconds);
+        delayMicroseconds(halfPeriodMicroseconds);
     }
 }
 
@@ -134,7 +122,7 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
     {
         case kSymmetryS:
             runSynchronizedGroups(config, lcd);
-            delay(1000 / config.frequencyHz.value);
+            delayMicroseconds(1000000 / (config.frequencyHz.value - (config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value)));
             return;
 
         case kSymmetryA:
@@ -147,15 +135,13 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
             break;
     }
     // Ejecucion con retardo entre grupos
-    runGroup(group1, config, lcd);
-    delayMicroseconds(config.groupDelay10Microseconds.value * 10L);
+    const long groupDelayMicroseconds = config.groupDelay10Microseconds.value * 10L;
+    const long groupDurationMicroseconds = config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value;
+    const long periodMicroseconds = (1000000L / config.frequencyHz.value) - groupDelayMicroseconds - (2L * groupDurationMicroseconds);
 
-    const unsigned long group2StartMicroseconds = micros();
+    runGroup(group1, config, lcd);
+    delayMicroseconds(groupDelayMicroseconds);
     runGroup(group2, config, lcd);
 
-    const unsigned long group2DurationMicroseconds = micros() - group2StartMicroseconds;
-    const unsigned long periodMicroseconds = 1000000UL / config.frequencyHz.value;
-
-    if (group2DurationMicroseconds < periodMicroseconds)
-        delayMicroseconds(periodMicroseconds - group2DurationMicroseconds);
+    delayMicroseconds(periodMicroseconds);
 }
