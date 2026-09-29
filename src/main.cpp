@@ -25,7 +25,6 @@ void setup()
 
     loadConfiguration(config, lcd);
     lcd.print(config);
-    lcd.printOutputStatus(config.state.value != kStateOff);
 
     initializePulseOutputs();
 }

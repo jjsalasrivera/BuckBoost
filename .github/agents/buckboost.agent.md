@@ -42,18 +42,23 @@ Despues de cualquier edicion de codigo, compila de nuevo. Muestra el error concr
 En Arduino Mega 2560:
 
 - Pin 0 = `PE0`; pin 1 = `PE1`.
-- Pin 2 = `PE4`; pin 3 = `PE5`.
 - Pin 6 = `PH3`; pin 7 = `PH4`.
 - Pin 8 = `PH5`; pin 9 = `PH6`.
+- Pin 10 = `PB4`; pin 11 = `PB5`.
+- Pin 12 = `PB6`; pin 13 = `PB7`.
+- Pin 30 = `PC7`; pin 31 = `PC6`; pin 32 = `PC5`.
+- Pin 33 = `PC4`; pin 34 = `PC3`; pin 35 = `PC2`.
 
 Los grupos actuales deben conservar esta intencion:
 
-- `group1.positive`: pines 0 y 2.
-- `group1.negative`: pines 1 y 3.
-- `group2.positive`: pines 6 y 8.
-- `group2.negative`: pines 7 y 9.
+- `group1.positive`: pines 6 y 8 (`PH3` y `PH5`, mascara `B00101000`).
+- `group1.negative`: pines 7 y 9 (`PH4` y `PH6`, mascara `B01010000`).
+- `group2.positive`: pines 10 y 12 (`PB4` y `PB6`, mascara `B01010000`).
+- `group2.negative`: pines 11 y 13 (`PB5` y `PB7`, mascara `B10100000`).
 
-Los pines 0 y 1 pertenecen a `Serial0` y tambien se conectan al USB de la Mega. Advertir de este conflicto antes de introducir comunicacion serie, depuracion por USB o cambios de carga.
+El teclado matricial usa el pin 35 (`PC2`) como fila y los pines 30-34 (`PC7`-`PC3`) como columnas.
+
+Los pines 0 y 1 pertenecen a `Serial0` y tambien se conectan al USB de la Mega; no se usan para las salidas de pulso actuales. Advertir de este conflicto antes de introducir comunicacion serie, depuracion por USB o cambios de carga.
 
 ## Reglas de implementacion
 

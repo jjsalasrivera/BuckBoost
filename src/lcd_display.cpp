@@ -93,9 +93,3 @@ void LcdDisplay::print(const ConfigurationField& field)
     lcd.print(" ");
     lcd.print(field.unit);
 }
-
-void LcdDisplay::printOutputStatus(bool active)
-{
-    lcd.setCursor(15, 1);
-    lcd.print(active ? "*" : " ");
-}
