@@ -1,5 +1,6 @@
 #include <Arduino.h>
 
+#include "configuration_menu.h"
 #include "pulse_outputs.h"
 
 namespace 
@@ -95,9 +96,17 @@ void initializePulseOutputs()
     *group2.negative.directionRegister |= group2.negative.bitMask;
 }
 
+void stopPulseOutputs()
+{
+    disablePulseOutputs();
+}
+
 void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
 {
-    if (config.state.value == kStateOff)
+    // hasValidDerivedTiming recalcula config.derived y descarta cualquier
+    // retardo negativo: sin este control un valor invalido se convierte en
+    // delayMicroseconds con un valor enorme y salidas pegadas en un estado.
+    if (config.state.value == kStateOff || !hasValidDerivedTiming(config))
     {
         disablePulseOutputs();
         return;

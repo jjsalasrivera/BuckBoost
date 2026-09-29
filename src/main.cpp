@@ -23,40 +23,42 @@ void setup()
     config.symmetry = {"Symmetry", kSymmetryR, 0, 0, kSymmetryR, ""};
     config.groupDelay10Microseconds = {"Retardo grupo", 500, 0, 9999, 500, "*10us"};
 
+    // Las salidas se configuran antes de cargar la EEPROM para que los pines
+    // queden a nivel bajo incluso si la carga se rechaza.
+    initializePulseOutputs();
+
     loadConfiguration(config, lcd);
     lcd.print(config);
-
-    initializePulseOutputs();
 }
 
 void loop() 
 {
     const char key = readKeypadKey();
-    
-    if (!configurationMode)
-    {
-        if (key != kNoKey)
-        {
-            //config.state.value = kStateOff;
-            //lcd.print(config);
-            configurationMode = true;
-            runPulseOutputs(config, lcd);
-            beginConfiguration(config, menu, lcd, millis());
-        }
-        else
-            runPulseOutputs(config, lcd);
-        
-        return;
-    }
+    const unsigned long now = millis();
 
     runPulseOutputs(config, lcd);
 
-    if (key != kNoKey)
-        handleKey(key, config, menu, lcd, millis());
-
-    if (configurationTimedOut(menu, millis()))
+    if (!configurationMode)
     {
-        configurationMode = false;
-        lcd.print(config);
+        // MODO NORMAL: el equipo está generando pulsos y el menú está cerrado.
+        // Cualquier tecla sirve para abrir el menú de configuración.
+        if (key != kNoKey)
+        {
+            configurationMode = true;
+            beginConfiguration(config, menu, lcd, now);
+        }
+    }
+    else
+    {
+        // MODO CONFIGURACIÓN: el menú está abierto.
+        // Cada tecla pulsada mueve o cambia el campo que se ve en la pantalla.
+        if (key != kNoKey)
+            handleKey(key, config, menu, lcd, now);
+
+        if (configurationTimedOut(menu, now))
+        {
+            configurationMode = false;
+            lcd.print(config);
+        }
     }
 }

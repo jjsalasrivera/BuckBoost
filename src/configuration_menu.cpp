@@ -2,6 +2,7 @@
 #include <EEPROM.h>
 
 #include "configuration_menu.h"
+#include "pulse_outputs.h"
 
 namespace
 {
@@ -89,47 +90,138 @@ namespace
 
     void calculateDerivedTiming(const TimingConfiguration& config)
     {
-        config.derived.pulsePhaseMicroseconds =
-            (config.carrierFrequencyMicroseconds.value -
-             (2L * config.interPeakDelayMicroseconds.value)) / 2L;
-        config.derived.frequencyPeriodMicroseconds = config.frequencyHz.value > 0
-            ? 1000000L / config.frequencyHz.value
-            : 0;
-
-        config.derived.groupDelayMicroseconds =
-            config.groupDelay10Microseconds.value * 10L;
-        config.derived.groupDurationMicroseconds =
-            config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value;
-        config.derived.groupPeriodMicroseconds =
-            config.derived.frequencyPeriodMicroseconds -
-            config.derived.groupDelayMicroseconds -
-            (2L * config.derived.groupDurationMicroseconds);
-        config.derived.synchronizedDelayMicroseconds =
-            config.derived.frequencyPeriodMicroseconds -
-            config.derived.groupDurationMicroseconds;
-        config.derived.asymmetricHalfPeriodMicroseconds =
-            (config.derived.frequencyPeriodMicroseconds -
-             (2L * config.derived.groupDurationMicroseconds)) / 2L;
+        config.derived.pulsePhaseMicroseconds = (config.carrierFrequencyMicroseconds.value - (2L * config.interPeakDelayMicroseconds.value)) / 2L;
+        config.derived.frequencyPeriodMicroseconds = config.frequencyHz.value > 0 ? 1000000L / config.frequencyHz.value : 0;
+        config.derived.groupDelayMicroseconds = config.groupDelay10Microseconds.value * 10L;
+        config.derived.groupDurationMicroseconds = config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value;
+        config.derived.groupPeriodMicroseconds = config.derived.frequencyPeriodMicroseconds - config.derived.groupDelayMicroseconds - (2L * config.derived.groupDurationMicroseconds);
+        config.derived.synchronizedDelayMicroseconds = config.derived.frequencyPeriodMicroseconds - config.derived.groupDurationMicroseconds;
+        config.derived.asymmetricHalfPeriodMicroseconds = (config.derived.frequencyPeriodMicroseconds - (2L * config.derived.groupDurationMicroseconds)) / 2L;
     }
 
-    bool hasValidDerivedTiming(const TimingConfiguration& config)
+    bool validateFields(const TimingConfiguration& config, ConfigurationError& error)
     {
-        return config.derived.pulsePhaseMicroseconds >= 0 &&
-            config.derived.frequencyPeriodMicroseconds > 0 &&
-            config.derived.groupDelayMicroseconds >= 0 &&
-            config.derived.groupDurationMicroseconds >= 0 &&
-            config.derived.groupPeriodMicroseconds >= 0 &&
-            config.derived.groupPeriodMicroseconds <= config.derived.frequencyPeriodMicroseconds &&
-            config.derived.synchronizedDelayMicroseconds >= 0 &&
-            config.derived.asymmetricHalfPeriodMicroseconds >= 0;
+        const ConfigurationField* fields[] = {
+            &config.state,
+            &config.frequencyHz,
+            &config.carrierFrequencyMicroseconds,
+            &config.pulsesPerCycle,
+            &config.interPeakDelayMicroseconds,
+            &config.symmetry,
+            &config.groupDelay10Microseconds
+        };
+
+        for (unsigned char i = 0; i < kEditableFieldCount; ++i)
+        {
+            if (!isValidField(*fields[i]))
+            {
+                error = ConfigurationError::FieldRange;
+                return false;
+            }
+        }
+
+        return true;
     }
 
-    void showConfigurationError(LcdDisplay& lcd)
+    // config.derived es mutable, asi que se recalcula sobre la propia
+    // configuracion sin necesidad de una copia.
+    bool validateDerivedTiming(const TimingConfiguration& config, ConfigurationError& error)
+    {
+        calculateDerivedTiming(config);
+        const DerivedTiming& derived = config.derived;
+
+        // El periodo de la frecuencia tiene que existir.
+        if (derived.frequencyPeriodMicroseconds <= 0)
+        {
+            error = ConfigurationError::FieldRange;
+            return false;
+        }
+
+        // Cada pulso necesita fase positiva: portadora > 2 * retardo entre picos.
+        if (derived.pulsePhaseMicroseconds <= 0)
+        {
+            error = ConfigurationError::PulseWidth;
+            return false;
+        }
+
+        // Un grupo debe tener al menos un pulso.
+        if (derived.groupDurationMicroseconds <= 0)
+        {
+            error = ConfigurationError::GroupDuration;
+            return false;
+        }
+
+        // Criterio explicito: el retardo entre grupos no puede superar el
+        // periodo de la frecuencia.
+        if (derived.groupDelayMicroseconds > derived.frequencyPeriodMicroseconds)
+        {
+            error = ConfigurationError::GroupDelay;
+            return false;
+        }
+
+        // Un grupo completo tiene que caber en el periodo.
+        if (derived.groupDurationMicroseconds > derived.frequencyPeriodMicroseconds)
+        {
+            error = ConfigurationError::GroupDuration;
+            return false;
+        }
+
+        // Simetria R: retardo + 2 grupos dentro del periodo.
+        if (derived.groupPeriodMicroseconds < 0)
+        {
+            error = ConfigurationError::TimingOverlap;
+            return false;
+        }
+
+        // Simetria S: 1 grupo por periodo.
+        if (derived.synchronizedDelayMicroseconds < 0)
+        {
+            error = ConfigurationError::TimingOverlap;
+            return false;
+        }
+
+        // Simetria A: 2 grupos por periodo.
+        if (derived.asymmetricHalfPeriodMicroseconds < 0)
+        {
+            error = ConfigurationError::TimingOverlap;
+            return false;
+        }
+
+        return true;
+    }
+
+    const char* errorDescription(ConfigurationError error)
+    {
+        switch (error)
+        {
+            case ConfigurationError::FieldRange: return "Bad value range";
+            case ConfigurationError::PulseWidth: return "Width < 2x delay";
+            case ConfigurationError::GroupDelay: return "Group delay > T";
+            case ConfigurationError::GroupDuration: return "Pulses do not fit";
+            case ConfigurationError::TimingOverlap: return "Timing overlap";
+            case ConfigurationError::None:
+            default: return "Unknown error";
+        }
+    }
+
+    void showConfigurationError(LcdDisplay& lcd, ConfigurationError error)
     {
         lcd.clear();
         lcd.print("CONFIG ERROR");
-        lcd.print("Timing overlap", 0, 1);
+        lcd.print(errorDescription(error), 0, 1);
         delay(5000);
+    }
+
+    // Rechazo de una configuracion: se para la salida de pulsos, el estado
+    // queda apagado en RAM (sin tocar la EEPROM) y se informa durante 5 s.
+    void rejectConfiguration(TimingConfiguration& config, LcdDisplay& lcd, ConfigurationError error)
+    {
+        config.state.value = kStateOff;
+        config.state.previousValue = kStateOff;
+
+        calculateDerivedTiming(config);
+        stopPulseOutputs();
+        showConfigurationError(lcd, error);
     }
 }
 
@@ -164,11 +256,13 @@ bool handleKey(char key, TimingConfiguration& config, ConfigurationMenuState& me
         {
             const long previousValue = field->value;
             field->value = field->previousValue;
-            if (!saveConfiguration(config))
+
+            ConfigurationError error = ConfigurationError::None;
+            if (!saveConfiguration(config, error))
             {
                 field->value = previousValue;
                 field->previousValue = previousValue;
-                showConfigurationError(lcd);
+                rejectConfiguration(config, lcd, error);
             }
 
             break;
@@ -233,42 +327,40 @@ void loadConfiguration(TimingConfiguration& config, LcdDisplay& lcd)
     };
 
     for (unsigned char i = 0; i < kEditableFieldCount; ++i)
+        fields[i]->value = values[i];
+
+    ConfigurationError error = ConfigurationError::None;
+    if (!validateConfiguration(loaded, error))
     {
-        ConfigurationField candidateField = *fields[i];
-        candidateField.value = values[i];
-        if (!isValidField(candidateField))
-        {
-            calculateDerivedTiming(config);
-            showConfigurationError(lcd);
-            return;
-        }
+        calculateDerivedTiming(config);
+        rejectConfiguration(config, lcd, error);
+        return;
     }
 
     for (unsigned char i = 0; i < kEditableFieldCount; ++i)
-    {
-        fields[i]->value = values[i];
         fields[i]->previousValue = fields[i]->value;
-    }
-
-    calculateDerivedTiming(loaded);
-    if (!hasValidDerivedTiming(loaded))
-    {
-        calculateDerivedTiming(config);
-        showConfigurationError(lcd);
-        return;
-    }
 
     config = loaded;
 }
 
-bool saveConfiguration(const TimingConfiguration& config)
+bool validateConfiguration(const TimingConfiguration& config, ConfigurationError& error)
 {
-    TimingConfiguration candidate = config;
-    calculateDerivedTiming(candidate);
-    if (!hasValidDerivedTiming(candidate))
+    if (!validateFields(config, error))
         return false;
 
-    config.derived = candidate.derived;
+    return validateDerivedTiming(config, error);
+}
+
+bool hasValidDerivedTiming(const TimingConfiguration& config)
+{
+    ConfigurationError error = ConfigurationError::None;
+    return validateDerivedTiming(config, error);
+}
+
+bool saveConfiguration(const TimingConfiguration& config, ConfigurationError& error)
+{
+    if (!validateConfiguration(config, error))
+        return false;
 
     const StoredConfiguration stored = {
         kConfigurationSignature,
