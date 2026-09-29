@@ -17,6 +17,6 @@ bool handleKey(char key, TimingConfiguration& config, ConfigurationMenuState& me
 
 bool configurationTimedOut(const ConfigurationMenuState& menu, unsigned long nowMilliseconds);
 
-void loadConfiguration(TimingConfiguration& config);
+void loadConfiguration(TimingConfiguration& config, LcdDisplay& lcd);
 
-void saveConfiguration(const TimingConfiguration& config);
+bool saveConfiguration(const TimingConfiguration& config);

@@ -86,6 +86,51 @@ namespace
     {
         lcd.print(*getField(config, menu.fieldIndex));
     }
+
+    void calculateDerivedTiming(const TimingConfiguration& config)
+    {
+        config.derived.pulsePhaseMicroseconds =
+            (config.carrierFrequencyMicroseconds.value -
+             (2L * config.interPeakDelayMicroseconds.value)) / 2L;
+        config.derived.frequencyPeriodMicroseconds = config.frequencyHz.value > 0
+            ? 1000000L / config.frequencyHz.value
+            : 0;
+
+        config.derived.groupDelayMicroseconds =
+            config.groupDelay10Microseconds.value * 10L;
+        config.derived.groupDurationMicroseconds =
+            config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value;
+        config.derived.groupPeriodMicroseconds =
+            config.derived.frequencyPeriodMicroseconds -
+            config.derived.groupDelayMicroseconds -
+            (2L * config.derived.groupDurationMicroseconds);
+        config.derived.synchronizedDelayMicroseconds =
+            config.derived.frequencyPeriodMicroseconds -
+            config.derived.groupDurationMicroseconds;
+        config.derived.asymmetricHalfPeriodMicroseconds =
+            (config.derived.frequencyPeriodMicroseconds -
+             (2L * config.derived.groupDurationMicroseconds)) / 2L;
+    }
+
+    bool hasValidDerivedTiming(const TimingConfiguration& config)
+    {
+        return config.derived.pulsePhaseMicroseconds >= 0 &&
+            config.derived.frequencyPeriodMicroseconds > 0 &&
+            config.derived.groupDelayMicroseconds >= 0 &&
+            config.derived.groupDurationMicroseconds >= 0 &&
+            config.derived.groupPeriodMicroseconds >= 0 &&
+            config.derived.groupPeriodMicroseconds <= config.derived.frequencyPeriodMicroseconds &&
+            config.derived.synchronizedDelayMicroseconds >= 0 &&
+            config.derived.asymmetricHalfPeriodMicroseconds >= 0;
+    }
+
+    void showConfigurationError(LcdDisplay& lcd)
+    {
+        lcd.clear();
+        lcd.print("CONFIG ERROR");
+        lcd.print("Timing overlap", 0, 1);
+        delay(5000);
+    }
 }
 
 void beginConfiguration(TimingConfiguration& config, ConfigurationMenuState& menu, LcdDisplay& lcd, unsigned long nowMilliseconds)
@@ -116,13 +161,18 @@ bool handleKey(char key, TimingConfiguration& config, ConfigurationMenuState& me
             
             break;
         case 'S':
-            //field->previousValue = field->value;
+        {
+            const long previousValue = field->value;
             field->value = field->previousValue;
-            //menu.fieldIndex = (menu.fieldIndex + 1) % kEditableFieldCount;
-            //getField(config, menu.fieldIndex)->previousValue = getField(config, menu.fieldIndex)->value;
-            saveConfiguration(config);
+            if (!saveConfiguration(config))
+            {
+                field->value = previousValue;
+                field->previousValue = previousValue;
+                showConfigurationError(lcd);
+            }
 
             break;
+        }
         case 'N':
             //restoreCurrentField(config, menu);
             field->previousValue = field->value;
@@ -150,14 +200,17 @@ bool configurationTimedOut(const ConfigurationMenuState& menu, unsigned long now
     return nowMilliseconds - menu.lastInteractionMilliseconds >= kConfigurationTimeoutMilliseconds;
 }
 
-void loadConfiguration(TimingConfiguration& config)
+void loadConfiguration(TimingConfiguration& config, LcdDisplay& lcd)
 {
     StoredConfiguration stored;
     EEPROM.get(kEepromAddress, stored);
 
     if (stored.signature != kConfigurationSignature ||
         stored.version != kConfigurationVersion)
+    {
+        calculateDerivedTiming(config);
         return;
+    }
 
     const long values[] = {
         stored.state,
@@ -168,22 +221,27 @@ void loadConfiguration(TimingConfiguration& config)
         stored.symmetry,
         stored.groupDelay10Microseconds
     };
+    TimingConfiguration loaded = config;
     ConfigurationField* fields[] = {
-        &config.state,
-        &config.frequencyHz,
-        &config.carrierFrequencyMicroseconds,
-        &config.pulsesPerCycle,
-        &config.interPeakDelayMicroseconds,
-        &config.symmetry,
-        &config.groupDelay10Microseconds
+        &loaded.state,
+        &loaded.frequencyHz,
+        &loaded.carrierFrequencyMicroseconds,
+        &loaded.pulsesPerCycle,
+        &loaded.interPeakDelayMicroseconds,
+        &loaded.symmetry,
+        &loaded.groupDelay10Microseconds
     };
 
     for (unsigned char i = 0; i < kEditableFieldCount; ++i)
     {
-        ConfigurationField candidate = *fields[i];
-        candidate.value = values[i];
-        if (!isValidField(candidate))
+        ConfigurationField candidateField = *fields[i];
+        candidateField.value = values[i];
+        if (!isValidField(candidateField))
+        {
+            calculateDerivedTiming(config);
+            showConfigurationError(lcd);
             return;
+        }
     }
 
     for (unsigned char i = 0; i < kEditableFieldCount; ++i)
@@ -191,10 +249,27 @@ void loadConfiguration(TimingConfiguration& config)
         fields[i]->value = values[i];
         fields[i]->previousValue = fields[i]->value;
     }
+
+    calculateDerivedTiming(loaded);
+    if (!hasValidDerivedTiming(loaded))
+    {
+        calculateDerivedTiming(config);
+        showConfigurationError(lcd);
+        return;
+    }
+
+    config = loaded;
 }
 
-void saveConfiguration(const TimingConfiguration& config)
+bool saveConfiguration(const TimingConfiguration& config)
 {
+    TimingConfiguration candidate = config;
+    calculateDerivedTiming(candidate);
+    if (!hasValidDerivedTiming(candidate))
+        return false;
+
+    config.derived = candidate.derived;
+
     const StoredConfiguration stored = {
         kConfigurationSignature,
         kConfigurationVersion,
@@ -208,4 +283,5 @@ void saveConfiguration(const TimingConfiguration& config)
     };
 
     EEPROM.put(kEepromAddress, stored);
+    return true;
 }

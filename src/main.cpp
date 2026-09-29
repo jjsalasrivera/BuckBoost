@@ -23,7 +23,7 @@ void setup()
     config.symmetry = {"Symmetry", kSymmetryR, 0, 0, kSymmetryR, ""};
     config.groupDelay10Microseconds = {"Retardo grupo", 500, 0, 9999, 500, "*10us"};
 
-    loadConfiguration(config);
+    loadConfiguration(config, lcd);
     lcd.print(config);
     lcd.printOutputStatus(config.state.value != kStateOff);
 

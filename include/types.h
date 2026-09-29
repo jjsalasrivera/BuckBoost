@@ -15,6 +15,16 @@ struct ConfigurationField {
 	const char* unit;
 };
 
+struct DerivedTiming {
+	long pulsePhaseMicroseconds;
+	long frequencyPeriodMicroseconds;
+	long synchronizedDelayMicroseconds;
+	long asymmetricHalfPeriodMicroseconds;
+	long groupDelayMicroseconds;
+	long groupDurationMicroseconds;
+	long groupPeriodMicroseconds;
+};
+
 struct TimingConfiguration {
 	ConfigurationField state;
 	ConfigurationField frequencyHz;
@@ -23,6 +33,7 @@ struct TimingConfiguration {
 	ConfigurationField interPeakDelayMicroseconds;
 	ConfigurationField symmetry;
 	ConfigurationField groupDelay10Microseconds; // Pasar a centesimas de milisegundo para que sea más fácil de manejar en el código y en la pantalla del LCD
+	mutable DerivedTiming derived;
 };
 
 struct PulseOutputPin {

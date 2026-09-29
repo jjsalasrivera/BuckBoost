@@ -28,40 +28,30 @@ namespace
 
     inline void runGroup(const PulseOutputGroup& group, const TimingConfiguration& config, LcdDisplay& lcd )
     {
-        lcd.printOutputStatus(true);
-        const int delayMicrosecondsValue = (config.carrierFrequencyMicroseconds.value - (2 * config.interPeakDelayMicroseconds.value)) / 2;
-
         for (int i = 0; i < config.pulsesPerCycle.value; ++i)
         {
-            deactivatePin(group.negative);
             activatePin(group.positive);
-            delayMicroseconds(delayMicrosecondsValue);
+            delayMicroseconds(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group.positive);
             delayMicroseconds(config.interPeakDelayMicroseconds.value);
 
             activatePin(group.negative);
-            delayMicroseconds(delayMicrosecondsValue);
-        }
+            delayMicroseconds(config.derived.pulsePhaseMicroseconds);
 
-        deactivatePin(group.positive);
-        deactivatePin(group.negative);
-        lcd.printOutputStatus(false);
+            deactivatePin(group.negative);
+            delayMicroseconds(config.interPeakDelayMicroseconds.value);
+        }
     }
 
     inline void runSynchronizedGroups(const TimingConfiguration& config, LcdDisplay& lcd)
     {
-        const int delayMicrosecondsValue = (config.carrierFrequencyMicroseconds.value - (2 * config.interPeakDelayMicroseconds.value)) / 2;
-
-        lcd.printOutputStatus(true);
         for (int i = 0; i < config.pulsesPerCycle.value; ++i)
         {
-            deactivatePin(group1.negative);
-            deactivatePin(group2.negative);
             activatePin(group1.positive);
             activatePin(group2.positive);
 
-            delayMicroseconds(delayMicrosecondsValue);
+            delayMicroseconds(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group1.positive);
             deactivatePin(group2.positive);
@@ -69,14 +59,12 @@ namespace
 
             activatePin(group1.negative);
             activatePin(group2.negative);
-            delayMicroseconds(delayMicrosecondsValue);
-        }
+            delayMicroseconds(config.derived.pulsePhaseMicroseconds);
 
-        deactivatePin(group1.positive);
-        deactivatePin(group1.negative);
-        deactivatePin(group2.positive);
-        deactivatePin(group2.negative);
-        lcd.printOutputStatus(false);
+            deactivatePin(group1.negative);
+            deactivatePin(group2.negative);
+            delayMicroseconds(config.interPeakDelayMicroseconds.value);
+        }
     }
 
     inline void disablePulseOutputs()
@@ -89,16 +77,13 @@ namespace
 
     inline void runAsymmetricGroups(const TimingConfiguration& config, LcdDisplay& lcd)
     {
-        const unsigned long periodMicroseconds = 1000000UL / (config.frequencyHz.value - (config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value));
-        const unsigned long halfPeriodMicroseconds = periodMicroseconds / 2;
-
         runGroup(group1, config, lcd);
 
-        delayMicroseconds(halfPeriodMicroseconds);
+        delayMicroseconds(config.derived.asymmetricHalfPeriodMicroseconds);
 
         runGroup(group2, config, lcd);
 
-        delayMicroseconds(halfPeriodMicroseconds);
+        delayMicroseconds(config.derived.asymmetricHalfPeriodMicroseconds);
     }
 }
 
@@ -122,7 +107,7 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
     {
         case kSymmetryS:
             runSynchronizedGroups(config, lcd);
-            delayMicroseconds(1000000 / (config.frequencyHz.value - (config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value)));
+            delayMicroseconds(config.derived.synchronizedDelayMicroseconds);
             return;
 
         case kSymmetryA:
@@ -135,13 +120,8 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
             break;
     }
     // Ejecucion con retardo entre grupos
-    const long groupDelayMicroseconds = config.groupDelay10Microseconds.value * 10L;
-    const long groupDurationMicroseconds = config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value;
-    const long periodMicroseconds = (1000000L / config.frequencyHz.value) - groupDelayMicroseconds - (2L * groupDurationMicroseconds);
-
     runGroup(group1, config, lcd);
-    delayMicroseconds(groupDelayMicroseconds);
+    delayMicroseconds(config.derived.groupDelayMicroseconds);
     runGroup(group2, config, lcd);
-
-    delayMicroseconds(periodMicroseconds);
+    delayMicroseconds(config.derived.groupPeriodMicroseconds);
 }
