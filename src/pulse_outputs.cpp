@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "configuration_menu.h"
+#include "precise_timing.h"
 #include "pulse_outputs.h"
 
 namespace 
@@ -32,16 +33,16 @@ namespace
         for (int i = 0; i < config.pulsesPerCycle.value; ++i)
         {
             activatePin(group.positive);
-            delayMicroseconds(config.derived.pulsePhaseMicroseconds);
+            delayMicrosecondsExact(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group.positive);
-            delayMicroseconds(config.interPeakDelayMicroseconds.value);
+            delayMicrosecondsExact(config.interPeakDelayMicroseconds.value);
 
             activatePin(group.negative);
-            delayMicroseconds(config.derived.pulsePhaseMicroseconds);
+            delayMicrosecondsExact(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group.negative);
-            delayMicroseconds(config.interPeakDelayMicroseconds.value);
+            delayMicrosecondsExact(config.interPeakDelayMicroseconds.value);
         }
     }
 
@@ -52,19 +53,19 @@ namespace
             activatePin(group1.positive);
             activatePin(group2.positive);
 
-            delayMicroseconds(config.derived.pulsePhaseMicroseconds);
+            delayMicrosecondsExact(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group1.positive);
             deactivatePin(group2.positive);
-            delayMicroseconds(config.interPeakDelayMicroseconds.value);
+            delayMicrosecondsExact(config.interPeakDelayMicroseconds.value);
 
             activatePin(group1.negative);
             activatePin(group2.negative);
-            delayMicroseconds(config.derived.pulsePhaseMicroseconds);
+            delayMicrosecondsExact(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group1.negative);
             deactivatePin(group2.negative);
-            delayMicroseconds(config.interPeakDelayMicroseconds.value);
+            delayMicrosecondsExact(config.interPeakDelayMicroseconds.value);
         }
     }
 
@@ -80,11 +81,9 @@ namespace
     {
         runGroup(group1, config, lcd);
 
-        delayMicroseconds(config.derived.asymmetricHalfPeriodMicroseconds);
+        delayMicrosecondsExact(config.derived.asymmetricHalfPeriodMicroseconds);
 
         runGroup(group2, config, lcd);
-
-        delayMicroseconds(config.derived.asymmetricHalfPeriodMicroseconds);
     }
 }
 
@@ -105,22 +104,30 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
 {
     // hasValidDerivedTiming recalcula config.derived y descarta cualquier
     // retardo negativo: sin este control un valor invalido se convierte en
-    // delayMicroseconds con un valor enorme y salidas pegadas en un estado.
+    // un objetivo lejano para waitUntilMicroseconds y el tren se retrasa.
     if (config.state.value == kStateOff || !hasValidDerivedTiming(config))
     {
         disablePulseOutputs();
         return;
     }
 
+    // Instante de referencia del tren. Todo el codigo que se ejecuta desde
+    // aqui hasta el final del tren se descuenta del hueco, de modo que el
+    // intervalo entre el primer pulso de dos trenes consecutivos es
+    // exactamente el periodo de la frecuencia y la deriva no se acumula.
+    const uint32_t trainStart = microsNow();
+    const uint32_t period = static_cast<uint32_t>(config.derived.frequencyPeriodMicroseconds);
+
     switch (config.symmetry.value)
     {
         case kSymmetryS:
             runSynchronizedGroups(config, lcd);
-            delayMicroseconds(config.derived.synchronizedDelayMicroseconds);
+            waitUntilMicroseconds(trainStart + period);
             return;
 
         case kSymmetryA:
             runAsymmetricGroups(config, lcd);
+            waitUntilMicroseconds(trainStart + period);
             return;
 
         case kSymmetryR:
@@ -130,7 +137,7 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
     }
     // Ejecucion con retardo entre grupos
     runGroup(group1, config, lcd);
-    delayMicroseconds(config.derived.groupDelayMicroseconds);
+    delayMicrosecondsExact(config.derived.groupDelayMicroseconds);
     runGroup(group2, config, lcd);
-    delayMicroseconds(config.derived.groupPeriodMicroseconds);
+    waitUntilMicroseconds(trainStart + period);
 }

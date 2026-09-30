@@ -2,6 +2,7 @@
 #include "configuration_menu.h"
 #include "lcd_display.h"
 #include "keypad_config.h"
+#include "precise_timing.h"
 #include "pulse_outputs.h"
 #include "types.h"
 
@@ -14,6 +15,10 @@ void setup()
 {
     //Serial.begin(115200);
     lcd.initialize();
+
+    // Base de tiempos del Timer1. Debe existir antes de la primera llamada a
+    // runPulseOutputs() en loop().
+    initializeTimebase();
  
     config.state = {"Estado", kStateOff, kStateOff, kStateOn, kStateOff, ""};
     config.frequencyHz = {"Frequency", 30, 1, 100, 30, "Hz"};
