@@ -95,7 +95,6 @@ namespace
         config.derived.groupDelayMicroseconds = config.groupDelay10Microseconds.value * 10L;
         config.derived.groupDurationMicroseconds = config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value;
         config.derived.groupPeriodMicroseconds = config.derived.frequencyPeriodMicroseconds - config.derived.groupDelayMicroseconds - (2L * config.derived.groupDurationMicroseconds);
-        config.derived.synchronizedDelayMicroseconds = config.derived.frequencyPeriodMicroseconds - config.derived.groupDurationMicroseconds;
         config.derived.asymmetricHalfPeriodMicroseconds = (config.derived.frequencyPeriodMicroseconds - (2L * config.derived.groupDurationMicroseconds)) / 2L;
     }
 
@@ -173,14 +172,9 @@ namespace
             return false;
         }
 
-        // Simetria S: 1 grupo por periodo.
-        if (derived.synchronizedDelayMicroseconds < 0)
-        {
-            error = ConfigurationError::TimingOverlap;
-            return false;
-        }
-
         // Simetria A: 2 grupos por periodo.
+        // Este no se puede deducir de la comprobacion de groupDuration de
+        // arriba, que solo mira un grupo contra el periodo y aqui caben dos.
         if (derived.asymmetricHalfPeriodMicroseconds < 0)
         {
             error = ConfigurationError::TimingOverlap;

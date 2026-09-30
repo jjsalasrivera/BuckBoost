@@ -13,17 +13,21 @@
 // CS11 el prescaler es /8, de modo que una cuenta de TCNT1 dura 0.5 us, y el
 // desbordamiento ocurre cada 65536 * 0.5 = 32768 us, es decir cada 32.768 ms.
 //
-// El ISR suma ese periodo a un contador de 32 bits y microsNow() compone
-// (contador << 16) | TCNT1, que son cuentas de 0.5 us, y las convierte a
-// microsegundos dividiendo entre 2. El resultado son 32 bits utiles con
-// rollover practico a los 35 minutos.
+// El ISR suma ese periodo a un contador de 32 bits y ticksNow() compone
+// (contador << 16) | TCNT1. El resultado son 32 bits de cuentas de 0.5 us,
+// con rollover practico a los 35 minutos.
+//
+// Esa unidad es la que usa toda la programacion de esperas a proposito:
+// pasarla a microsegundos divide el rango entre 2 y lo deja en 31 bits, con
+// lo que sumar el periodo al instante se sale del tope y la resta se lee como
+// negativa. Ver waitUntilPulsePeriod().
 //
 // OJO: tratar cada cuenta como si fuera 1 us hace correr el reloj al doble de
 // velocidad, y el tren sale a la mitad del periodo pedido (50 Hz -> cada
-// 10 ms). De ahi el factor 2 del final de microsNow().
+// 10 ms). De ahi el factor 2 de kTicksPerMicrosecond.
 //
 // El ISR corre cada 32.768 ms, una carga de interrupcion despreciable, y solo
-// incrementa un contador. microsNow() desactiva las interrupciones mientras
+// incrementa un contador. ticksNow() desactiva las interrupciones mientras
 // compone la lectura para que el contador y TCNT1 no puedan quedar de fases
 // distintas.
 //
@@ -67,21 +71,21 @@ namespace
     // descuenta 5 ciclos de compensacion, de ahi el -1.
     constexpr unsigned int kMaxMicrosecondsPerCall = 16383;
 
-    // Paso de la ronda gruesa de waitUntilMicroseconds(). Grande frente a la
-    // resolucion de 1 us del reloj, para no releerlo en cada microsegundo.
-    constexpr uint32_t kCoarseStepMicroseconds = 250;
-
-    // Ventana final: por debajo de esto se gira el bus sin dormir, que es lo
-    // que fija la precision final del instante.
-    constexpr int32_t kSpinWindowMicroseconds = 100;
-
-    // Desbordamientos de 16 bits del Timer1 acumulados. Cada uno son 32768 us.
-    volatile uint32_t s_overflowCount = 0;
-
     // El prescaler /8 hace que una cuenta de TCNT1 dure 0.5 us, luego el reloj
     // va al doble de rapido que el conteo de cuentas y hay que dividir entre 2
     // para obtener microsegundos reales.
     constexpr uint32_t kTicksPerMicrosecond = 2;
+
+    // Paso de la ronda gruesa de waitUntilPulsePeriod(). Grande frente a la
+    // resolucion del reloj, para no releerlo en cada cuenta.
+    constexpr uint32_t kCoarseStepMicroseconds = 250;
+
+    // Ventana final: por debajo de esto se gira el bus sin dormir, que es lo
+    // que fija la precision final del instante.
+    constexpr int32_t kSpinWindowTicks = 100 * static_cast<int32_t>(kTicksPerMicrosecond);
+
+    // Desbordamientos de 16 bits del Timer1 acumulados. Cada uno son 32768 us.
+    volatile uint32_t s_overflowCount = 0;
 }
 
 ISR(TIMER1_OVF_vect)
@@ -102,7 +106,7 @@ void initializeTimebase()
     TCCR1B = _BV(CS11); // clk/8 -> 0.5 us por cuenta (ver kTicksPerMicrosecond)
 }
 
-uint32_t microsNow()
+static uint32_t ticksNow()
 {
     uint32_t high;
     uint16_t low;
@@ -124,7 +128,12 @@ uint32_t microsNow()
         interrupts();
     }
 
-    return ((high << 16) | low) / kTicksPerMicrosecond;
+    return (high << 16) | low;
+}
+
+uint32_t tickInstantNow()
+{
+    return ticksNow();
 }
 
 void delayMicrosecondsExact(uint32_t microseconds)
@@ -139,19 +148,25 @@ void delayMicrosecondsExact(uint32_t microseconds)
     delayMicroseconds(static_cast<unsigned int>(microseconds));
 }
 
-void waitUntilMicroseconds(uint32_t targetMicroseconds)
+void waitUntilPulsePeriod(uint32_t startInstant, uint32_t periodMicroseconds)
 {
+    // La suma va en el dominio de cuentas, que es modulo 2^32 igual que el
+    // reloj. En microsegundos el objetivo se pasaria del tope de 31 bits que
+    // tiene el rango util y la resta de mas abajo se leeria como negativa al
+    // dar la vuelta el reloj: el tren se adelantaria de golpe.
+    const uint32_t target = startInstant + periodMicroseconds * kTicksPerMicrosecond;
+
     for (;;)
     {
-        // La resta sin signo da la distancia correcta aunque microsNow() haya
-        // dado la vuelta, y el casting a con signo la vuelve negativa si ya se
+        // La resta sin signo da la distancia correcta aunque el reloj haya dado
+        // la vuelta, y el casting a con signo la vuelve negativa si ya se
         // alcanzo el objetivo.
-        const int32_t remaining = static_cast<int32_t>(targetMicroseconds - microsNow());
+        const int32_t remaining = static_cast<int32_t>(target - ticksNow());
 
         if (remaining <= 0)
             return;
 
-        if (remaining > kSpinWindowMicroseconds)
+        if (remaining > kSpinWindowTicks)
             delayMicrosecondsExact(kCoarseStepMicroseconds);
     }
 }

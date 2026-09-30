@@ -18,7 +18,6 @@ struct ConfigurationField {
 struct DerivedTiming {
 	long pulsePhaseMicroseconds;
 	long frequencyPeriodMicroseconds;
-	long synchronizedDelayMicroseconds;
 	long asymmetricHalfPeriodMicroseconds;
 	long groupDelayMicroseconds;
 	long groupDurationMicroseconds;

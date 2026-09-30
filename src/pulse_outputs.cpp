@@ -104,30 +104,34 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
 {
     // hasValidDerivedTiming recalcula config.derived y descarta cualquier
     // retardo negativo: sin este control un valor invalido se convierte en
-    // un objetivo lejano para waitUntilMicroseconds y el tren se retrasa.
+    // un objetivo lejano para waitUntilPulsePeriod y el tren se retrasa.
     if (config.state.value == kStateOff || !hasValidDerivedTiming(config))
     {
         disablePulseOutputs();
         return;
     }
 
-    // Instante de referencia del tren. Todo el codigo que se ejecuta desde
-    // aqui hasta el final del tren se descuenta del hueco, de modo que el
-    // intervalo entre el primer pulso de dos trenes consecutivos es
-    // exactamente el periodo de la frecuencia y la deriva no se acumula.
-    const uint32_t trainStart = microsNow();
+    // Instante de referencia del tren, en el dominio de cuentas del reloj.
+    // Todo el codigo que se ejecuta desde aqui hasta el final del tren se
+    // descuenta del hueco, de modo que el intervalo entre el primer pulso de
+    // dos trenes consecutivos es exactamente el periodo de la frecuencia y la
+    // deriva no se acumula. El periodo se le pasa aparte a
+    // waitUntilPulsePeriod(), que lo convierte a cuentas: sumarlo aqui en
+    // microsegundos se pasaria del tope de 31 bits del rango util y el tren
+    // se adelantaria de golpe una vez cada 35 minutos.
+    const uint32_t trainStart = tickInstantNow();
     const uint32_t period = static_cast<uint32_t>(config.derived.frequencyPeriodMicroseconds);
 
     switch (config.symmetry.value)
     {
         case kSymmetryS:
             runSynchronizedGroups(config, lcd);
-            waitUntilMicroseconds(trainStart + period);
+            waitUntilPulsePeriod(trainStart, period);
             return;
 
         case kSymmetryA:
             runAsymmetricGroups(config, lcd);
-            waitUntilMicroseconds(trainStart + period);
+            waitUntilPulsePeriod(trainStart, period);
             return;
 
         case kSymmetryR:
@@ -139,5 +143,5 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
     runGroup(group1, config, lcd);
     delayMicrosecondsExact(config.derived.groupDelayMicroseconds);
     runGroup(group2, config, lcd);
-    waitUntilMicroseconds(trainStart + period);
+    waitUntilPulsePeriod(trainStart, period);
 }
