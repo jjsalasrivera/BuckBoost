@@ -10,10 +10,10 @@ namespace
     byte keypadColumnPins[keypadColumns] = {30, 31, 32, 33, 34};
     Keypad keypad = Keypad(makeKeymap(keypadKeys), keypadRowPins, keypadColumnPins,
                         keypadRows, keypadColumns);
-
 }
 
 char readKeypadKey()
 {
     return keypad.getKey();
 }
+

@@ -2,7 +2,7 @@
 #include "configuration_menu.h"
 #include "lcd_display.h"
 #include "keypad_config.h"
-#include "precise_timing.h"
+#include "precise_delay.h"
 #include "pulse_outputs.h"
 #include "types.h"
 
@@ -41,7 +41,7 @@ void loop()
     const char key = readKeypadKey();
     const unsigned long now = millis();
 
-    runPulseOutputs(config, lcd);
+    runPulseOutputs(config);
 
     if (!configurationMode)
     {

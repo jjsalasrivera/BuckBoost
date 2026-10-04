@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 #include "configuration_menu.h"
-#include "precise_timing.h"
+#include "precise_delay.h"
 #include "pulse_outputs.h"
 
 namespace 
@@ -28,45 +28,48 @@ namespace
         *pin.outputRegister &= static_cast<unsigned char>(~pin.bitMask);
     }
 
-    inline void runGroup(const PulseOutputGroup& group, const TimingConfiguration& config, LcdDisplay& lcd )
+    inline void runGroup(const PulseOutputGroup& group, const TimingConfiguration& config )
     {
-        for (int i = 0; i < config.pulsesPerCycle.value; ++i)
+        long remainingPulses = config.pulsesPerCycle.value;
+        
+        do
         {
             activatePin(group.positive);
-            delayMicrosecondsExact(config.derived.pulsePhaseMicroseconds);
+            delayPreciseMicroseconds(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group.positive);
-            delayMicrosecondsExact(config.interPeakDelayMicroseconds.value);
+            delayPreciseMicroseconds(config.interPeakDelayMicroseconds.value);
 
             activatePin(group.negative);
-            delayMicrosecondsExact(config.derived.pulsePhaseMicroseconds);
+            delayPreciseMicroseconds(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group.negative);
-            delayMicrosecondsExact(config.interPeakDelayMicroseconds.value);
-        }
+            delayPreciseMicroseconds(config.interPeakDelayMicroseconds.value);
+        } while (--remainingPulses);
     }
 
-    inline void runSynchronizedGroups(const TimingConfiguration& config, LcdDisplay& lcd)
+    inline void runSynchronizedGroups(const TimingConfiguration& config)
     {
-        for (int i = 0; i < config.pulsesPerCycle.value; ++i)
+        long remainingPulses = config.pulsesPerCycle.value;
+
+        do
         {
             activatePin(group1.positive);
             activatePin(group2.positive);
-
-            delayMicrosecondsExact(config.derived.pulsePhaseMicroseconds);
+            delayPreciseMicroseconds(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group1.positive);
             deactivatePin(group2.positive);
-            delayMicrosecondsExact(config.interPeakDelayMicroseconds.value);
+            delayPreciseMicroseconds(config.interPeakDelayMicroseconds.value);
 
             activatePin(group1.negative);
             activatePin(group2.negative);
-            delayMicrosecondsExact(config.derived.pulsePhaseMicroseconds);
+            delayPreciseMicroseconds(config.derived.pulsePhaseMicroseconds);
 
             deactivatePin(group1.negative);
             deactivatePin(group2.negative);
-            delayMicrosecondsExact(config.interPeakDelayMicroseconds.value);
-        }
+            delayPreciseMicroseconds(config.interPeakDelayMicroseconds.value);
+        } while (--remainingPulses);
     }
 
     inline void disablePulseOutputs()
@@ -77,13 +80,15 @@ namespace
         deactivatePin(group2.negative);
     }
 
-    inline void runAsymmetricGroups(const TimingConfiguration& config, LcdDisplay& lcd)
+    inline void runAsymmetricGroups(const TimingConfiguration& config)
     {
-        runGroup(group1, config, lcd);
+        runGroup(group1, config);
 
-        delayMicrosecondsExact(config.derived.asymmetricHalfPeriodMicroseconds);
+        delayPreciseMicroseconds(config.derived.asymmetricHalfPeriodMicroseconds);
 
-        runGroup(group2, config, lcd);
+        runGroup(group2, config);
+
+        delayPreciseMicroseconds(config.derived.asymmetricHalfPeriodMicroseconds);
     }
 }
 
@@ -100,12 +105,9 @@ void stopPulseOutputs()
     disablePulseOutputs();
 }
 
-void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
+void runPulseOutputs(const TimingConfiguration& config)
 {
-    // hasValidDerivedTiming recalcula config.derived y descarta cualquier
-    // retardo negativo: sin este control un valor invalido se convierte en
-    // un objetivo lejano para waitUntilPulsePeriod y el tren se retrasa.
-    if (config.state.value == kStateOff || !hasValidDerivedTiming(config))
+    if (config.state.value == kStateOff)
     {
         disablePulseOutputs();
         return;
@@ -125,13 +127,12 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
     switch (config.symmetry.value)
     {
         case kSymmetryS:
-            runSynchronizedGroups(config, lcd);
-            waitUntilPulsePeriod(trainStart, period);
+            runSynchronizedGroups(config);
+            delayPreciseMicroseconds(config.derived.synchronizedDelayMicroseconds);
             return;
 
         case kSymmetryA:
-            runAsymmetricGroups(config, lcd);
-            waitUntilPulsePeriod(trainStart, period);
+            runAsymmetricGroups(config);
             return;
 
         case kSymmetryR:
@@ -140,8 +141,8 @@ void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd)
             break;
     }
     // Ejecucion con retardo entre grupos
-    runGroup(group1, config, lcd);
-    delayMicrosecondsExact(config.derived.groupDelayMicroseconds);
-    runGroup(group2, config, lcd);
-    waitUntilPulsePeriod(trainStart, period);
+    runGroup(group1, config);
+    delayPreciseMicroseconds(config.derived.groupDelayMicroseconds);
+    runGroup(group2, config);
+    delayPreciseMicroseconds(config.derived.groupPeriodMicroseconds);
 }

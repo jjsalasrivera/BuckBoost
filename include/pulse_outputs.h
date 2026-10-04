@@ -9,4 +9,4 @@ void initializePulseOutputs();
 // seguridad cuando la configuracion es invalida o se rechaza un guardado.
 void stopPulseOutputs();
 
-void runPulseOutputs(const TimingConfiguration& config, LcdDisplay& lcd);
+void runPulseOutputs(const TimingConfiguration& config);
