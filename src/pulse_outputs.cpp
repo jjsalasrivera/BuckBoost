@@ -117,8 +117,7 @@ void runPulseOutputs(const TimingConfiguration& config)
     {
         case kSymmetryS:
             runSynchronizedGroups(config);
-            delayPreciseMicroseconds(
-                config.derived.frequencyPeriodMicroseconds - config.derived.groupDurationMicroseconds);
+            delayPreciseMicroseconds(config.derived.frequencyPeriodMicroseconds - config.derived.groupDurationMicroseconds);
             return;
 
         case kSymmetryA:
