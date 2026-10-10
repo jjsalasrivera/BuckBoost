@@ -107,7 +107,7 @@ void stopPulseOutputs()
 
 void runPulseOutputs(const TimingConfiguration& config)
 {
-    if (config.state.value == kStateOff || !hasValidDerivedTiming(config))
+    if (config.state.value == kStateOff || !config.derived.valid)
     {
         disablePulseOutputs();
         return;

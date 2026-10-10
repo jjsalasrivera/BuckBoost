@@ -22,6 +22,7 @@ struct DerivedTiming {
 	long groupDelayMicroseconds;
 	long groupDurationMicroseconds;
 	long groupPeriodMicroseconds;
+	bool valid;
 };
 
 struct TimingConfiguration {

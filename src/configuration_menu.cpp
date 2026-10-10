@@ -96,6 +96,10 @@ namespace
         config.derived.groupDurationMicroseconds = config.pulsesPerCycle.value * config.carrierFrequencyMicroseconds.value;
         config.derived.groupPeriodMicroseconds = config.derived.frequencyPeriodMicroseconds - config.derived.groupDelayMicroseconds - (2L * config.derived.groupDurationMicroseconds);
         config.derived.asymmetricHalfPeriodMicroseconds = (config.derived.frequencyPeriodMicroseconds - (2L * config.derived.groupDurationMicroseconds)) / 2L;
+
+        // Fail-safe: cualquier calculo sin validar deja los tiempos como no
+        // utilizables. validateDerivedTiming() lo marca como valido al final.
+        config.derived.valid = false;
     }
 
     bool validateFields(const TimingConfiguration& config, ConfigurationError& error)
@@ -181,6 +185,7 @@ namespace
             return false;
         }
 
+        config.derived.valid = true;
         return true;
     }
 
